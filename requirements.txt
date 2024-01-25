@@ -1,6 +1,5 @@
-torch==2.0.1
-notebook==6.5.4
-gym==0.26.2upy
-tensordict~=0.1.2+14ca63b
-torchrl~=0.1.1+147de71
-pytest~=7.4.0
+torch~=2.1.2
+notebook~=7.0.7
+gymnasium~=0.29.1
+torchrl~=0.2.1
+pytest~=7.4.4
