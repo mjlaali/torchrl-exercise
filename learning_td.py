@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+import matplotlib.pyplot as plt
 import torch
 from tensordict.nn import TensorDictModule, TensorDictSequential
 from torchrl.collectors import SyncDataCollector
@@ -11,8 +12,6 @@ from torchrl.envs.utils import ExplorationType, set_exploration_type
 from torchrl.modules import EGreedyModule, QValueActor
 from torchrl.objectives import DQNLoss
 from torchrl.objectives.value import TD0Estimator
-import matplotlib.pyplot as plt
-
 from tqdm import tqdm
 
 
@@ -25,7 +24,7 @@ def main():
         ),
     )
     frames_per_batch = 1000
-    total_frames = frames_per_batch * 1000
+    total_frames = frames_per_batch * 200
     sub_batch_size = frames_per_batch // 100
     device = "cpu"
     num_value_improvement = 10
@@ -41,13 +40,16 @@ def main():
         frames_per_batch=frames_per_batch,
         total_frames=total_frames,
         split_trajs=False,
-        max_frames_per_traj=60,
         device=device,
     )
 
     value_network = TensorDictSequential(
         qvalue_actor,
-        TensorDictModule(module=IdentityModule(), in_keys=["chosen_action_value"], out_keys=["state_value"]),
+        TensorDictModule(
+            module=IdentityModule(),
+            in_keys=["chosen_action_value"],
+            out_keys=["state_value"],
+        ),
     )
     target_value_cal = TD0Estimator(
         gamma=0.9,
@@ -71,7 +73,6 @@ def main():
     logs = defaultdict(list)
     pbar = tqdm(total=total_frames)
     for i, tensordict_data in enumerate(collector):
-
         for _ in range(num_value_improvement):
             with torch.no_grad():
                 target_value_cal(tensordict_data)
@@ -93,9 +94,7 @@ def main():
 
         logs["reward"].append(tensordict_data["next", "reward"].mean().item())
         pbar.update(tensordict_data.numel())
-        cum_reward_str = (
-            f"average reward={logs['reward'][-1]: 4.2f} (init={logs['reward'][0]: 4.0f})"
-        )
+        cum_reward_str = f"average reward={logs['reward'][-1]: 4.2f} (init={logs['reward'][0]: 4.0f})"
         logs["step_count"].append(tensordict_data["step_count"].max().item())
         stepcount_str = f"step count (max): {logs['step_count'][-1]}"
         logs["lr"].append(optim.param_groups[0]["lr"])
@@ -121,7 +120,9 @@ def main():
                     f"eval step-count: {logs['eval step_count'][-1]}"
                 )
                 del eval_rollout
-        pbar.set_description(", ".join([eval_str, cum_reward_str, stepcount_str, lr_str]))
+        pbar.set_description(
+            ", ".join([eval_str, cum_reward_str, stepcount_str, lr_str])
+        )
 
         # We're also using a learning rate scheduler. Like the gradient clipping,
         # this is a nice-to-have but nothing necessary for PPO to work.
@@ -142,7 +143,7 @@ def main():
     plt.subplot(2, 2, 4)
     plt.plot(logs["eval step_count"])
     plt.title("Max step count (test)")
-    plt.savefig('training.png')
+    plt.savefig("training.png")
 
     print(list(qvalue_actor.parameters(True))[0])
 
@@ -182,5 +183,5 @@ class IdentityModule(torch.nn.Module):
         return x
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
